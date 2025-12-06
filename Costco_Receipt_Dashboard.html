@@ -3,46 +3,101 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Costco Receipt Dashboard</title>
+    <title>Costco Receipt Dashboard v5.4</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         
+        /* Drag & Drop Styles */
         #initial-view { min-height: 80vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         #drop-zone { border: 3px dashed #ced4da; border-radius: 15px; padding: 3rem; text-align: center; background-color: white; transition: 0.2s; cursor: pointer; width: 100%; max-width: 600px; }
         #drop-zone:hover, #drop-zone.dragover { border-color: #0d6efd; background-color: #f1f8ff; }
 
+        /* Dashboard Styles */
         .dashboard-header { background-color: white; border-bottom: 1px solid #dee2e6; padding: 1rem 0; margin-bottom: 2rem; }
         .stat-card { border-left: 5px solid; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .stat-total { border-color: #0d6efd; }
         .stat-tax { border-color: #dc3545; }
         .stat-sub { border-color: #198754; }
 
-        /* Pills */
-        .filter-btn { font-size: 0.75rem; border-radius: 20px; padding: 4px 12px; margin-left: 5px; border: 1px solid #dee2e6; background-color: white; color: #6c757d; cursor: pointer; transition: all 0.2s; font-weight: 600; }
+        /* Filter Controls */
+        .filter-btn { font-size: 0.75rem; border-radius: 20px; padding: 4px 12px; margin-left: 5px; border: 1px solid #dee2e6; background-color: white; color: #6c757d; cursor: pointer; transition: all 0.2s; font-weight: 600; white-space: nowrap; }
         .filter-btn:hover { background-color: #f8f9fa; }
         .filter-btn.active-refund { background-color: #dc3545; color: white; border-color: #dc3545; }
         .filter-btn.active-markdown { background-color: #6f42c1; color: white; border-color: #6f42c1; }
         .filter-btn.active-discount { background-color: #198754; color: white; border-color: #198754; }
+        
+        #dateFilter { font-size: 0.85rem; padding: 4px 8px; border-radius: 4px; border: 1px solid #ced4da; max-width: 220px; }
+        #searchInput { max-width: 350px; } 
 
-        .badge-discount { font-size: 0.7rem; background-color: #198754; color: white; padding: 2px 5px; border-radius: 4px; margin-right: 6px; vertical-align: middle; }
-        .badge-refund { font-size: 0.7rem; background-color: #dc3545; color: white; padding: 2px 5px; border-radius: 4px; margin-right: 5px; text-transform: uppercase; vertical-align: middle; }
-        .badge-markdown { font-size: 0.7rem; background-color: #6f42c1; color: white; padding: 2px 6px; border-radius: 4px; margin-left: 8px; text-transform: uppercase; vertical-align: middle; font-weight: bold; }
+        /* Badges */
+        .badge-discount { font-size: 0.7rem; background-color: #198754; color: white; padding: 1px 5px; border-radius: 4px; margin-right: 6px; vertical-align: middle; white-space: nowrap; }
+        .badge-refund { font-size: 0.7rem; background-color: #dc3545; color: white; padding: 1px 5px; border-radius: 4px; margin-right: 5px; text-transform: uppercase; vertical-align: middle; }
+        .badge-markdown { font-size: 0.7rem; background-color: #6f42c1; color: white; padding: 1px 5px; border-radius: 4px; margin-left: 8px; text-transform: uppercase; vertical-align: middle; font-weight: bold; }
 
-        .meta-text { font-size: 0.75rem; color: #6c757d; }
-        .price-original { text-decoration: line-through; color: #adb5bd; font-size: 0.8rem; margin-right: 4px; }
-        .price-net { font-weight: 700; font-family: monospace; font-size: 1.1rem; color: #212529; }
+        /* --- ITEM GRID LAYOUT --- */
+        .item-grid {
+            display: grid;
+            grid-template-columns: 1fr 210px 170px 130px; 
+            gap: 15px;
+            align-items: start; 
+            padding: 2px 0;
+        }
+
+        /* Col 1: Description & Meta */
+        .ig-desc { font-weight: 700; color: #212529; font-size: 0.95rem; line-height: 1.2; margin-bottom: 2px; }
+        .ig-meta { font-size: 0.75rem; color: #6c757d; font-family: monospace; display: block; }
+
+        /* Col 2: Units */
+        .ig-units { text-align: right; white-space: nowrap; min-height: 1px; } 
+        .unit-line-1 { display: block; font-size: 0.8rem; color: #495057; line-height: 1.3; }
+        .unit-line-2 { display: block; font-size: 0.75rem; color: #6c757d; line-height: 1.3; }
         
-        /* Unit Price Styling */
-        .price-unit { font-size: 0.75rem; color: #6c757d; display: block; margin-top: 2px; line-height: 1.3; }
-        .unit-strike { text-decoration: line-through; opacity: 0.6; margin-right: 3px; }
-        .unit-effective { color: #198754; font-weight: 600; }
+        /* UPDATED: Strike has left margin now, Effective is bold */
+        .unit-effective { color: #198754; font-weight: 700; }
+        .unit-strike { text-decoration: line-through; opacity: 0.5; margin-left: 5px; font-size: 0.75rem; }
+
+        /* Col 3: Price Calculation */
+        .ig-prices { text-align: right; display: flex; flex-direction: column; align-items: flex-end; min-height: 1px; }
+        .price-line-1 { display: flex; align-items: center; justify-content: flex-end; height: 1.2em; width: 100%; margin-bottom: 2px; }
+        .price-line-2 { display: flex; align-items: center; justify-content: flex-end; width: 100%; }
         
-        .price-tax-detail { font-size: 0.85rem; font-weight: 700; color: #dc3545; display: block; margin-top: 3px; }
-        .price-final { font-size: 0.85rem; font-weight: 700; color: #198754; display: block; border-top: 1px dashed #dee2e6; margin-top: 2px; padding-top: 2px; }
+        .price-original { text-decoration: line-through; color: #adb5bd; font-size: 0.95rem; } 
+        .price-net { font-weight: 700; font-family: monospace; font-size: 0.95rem; color: #212529; } 
+
+        /* Col 4: Totals */
+        .ig-totals { text-align: right; min-height: 1px; display: flex; flex-direction: column; justify-content: center; }
         
+        .price-tax-detail { font-size: 0.75rem; font-weight: 600; color: #dc3545; display: block; margin-bottom: 3px; }
+        .price-final { font-size: 0.95rem; font-weight: 700; color: #198754; display: block; border-top: 1px dashed #dee2e6; padding-top: 2px; }
+
         .row-refund { background-color: #fff5f5 !important; }
+
+        /* RECEIPT GROUP HEADERS */
+        .receipt-header-cell { padding: 0.5rem 1rem !important; border-bottom: 2px solid #dee2e6; }
+        .receipt-header-sale { border-left: 6px solid #0d6efd; background-color: #f0f8ff !important; } 
+        .receipt-header-refund { border-left: 6px solid #dc3545; background-color: #fff5f5 !important; } 
+        
+        .rh-flex-container { 
+            display: flex; 
+            align-items: center; 
+            width: 100%; 
+            font-size: 0.85rem; 
+            font-weight: 600; 
+            color: #495057; 
+        }
+        
+        .rh-col-datetime { min-width: 140px; color: #212529; margin-right: 15px; }
+        .rh-col-wh { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #495057; }
+        .rh-col-barcode { min-width: 90px; font-family: monospace; text-align: center; color: #adb5bd; font-size: 0.8rem; margin-right: 15px; font-weight: 400; }
+        
+        .rh-col-items { min-width: 60px; text-align: right; }
+        .rh-col-tax { min-width: 80px; text-align: right; color: #dc3545; }
+        .rh-col-total { min-width: 90px; text-align: right; color: #212529; }
+        .rh-col-saved { min-width: 100px; text-align: right; color: #198754; margin-left: 10px; }
+
+        #loadMoreBtn { width: 100%; border-radius: 0 0 5px 5px; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -82,36 +137,35 @@
         </div>
 
         <div class="row">
-            <div class="col-lg-7 mb-4">
+            <div class="col-lg-8 mb-4">
                 <div class="card shadow-sm h-100">
                     <div class="card-header bg-white fw-bold">
                         <div class="row g-2 align-items-center">
-                            <div class="col-auto">All Items</div>
+                            <div class="col-auto">
+                                <select id="dateFilter" class="form-select form-select-sm" onchange="handleSearchOrFilter()">
+                                    <option value="">All Dates</option>
+                                </select>
+                            </div>
                             <div class="col">
                                 <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="Search items...">
                             </div>
                             <div class="col-auto d-flex">
                                 <button class="filter-btn" id="filterRefund" onclick="toggleFilter('refund')">Refunds</button>
                                 <button class="filter-btn" id="filterMarkdown" onclick="toggleFilter('markdown')">Markdowns</button>
-                                <button class="filter-btn" id="filterDiscount" onclick="toggleFilter('discount')">Saved</button>
+                                <button class="filter-btn" id="filterDiscount" onclick="toggleFilter('discount')">Discounts</button>
                             </div>
                         </div>
                     </div>
-                    <div class="card-body p-0 overflow-auto" style="max-height: 700px;">
-                        <table class="table table-striped table-hover mb-0">
-                            <thead class="sticky-top bg-light">
-                                <tr>
-                                    <th>Item Details</th>
-                                    <th class="text-end" style="min-width: 160px;">Price Details</th>
-                                </tr>
-                            </thead>
+                    <div class="card-body p-0 overflow-auto" style="max-height: 750px;" id="tableContainer">
+                        <table class="table table-hover mb-0">
                             <tbody id="itemsTableBody"></tbody>
                         </table>
+                        <button id="loadMoreBtn" class="btn btn-light text-primary d-none" onclick="loadMoreReceipts()">Load More Receipts</button>
                     </div>
                 </div>
             </div>
 
-            <div class="col-lg-5 mb-4">
+            <div class="col-lg-4 mb-4">
                 <div class="card shadow-sm h-100">
                     <div class="card-header bg-white fw-bold">Top Spending (Net)</div>
                     <div class="card-body">
@@ -126,32 +180,44 @@
 <input type="file" id="fileInput" accept=".json" class="d-none">
 
 <script>
+    // --- Elements ---
     const fileInput = document.getElementById('fileInput');
     const dropZone = document.getElementById('drop-zone');
     const initialView = document.getElementById('initial-view');
     const dashboardView = document.getElementById('dashboard-view');
     const searchInput = document.getElementById('searchInput');
+    const dateFilter = document.getElementById('dateFilter');
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
+    const tbody = document.getElementById('itemsTableBody');
     
-    let globalItems = [];
+    // --- State ---
+    let globalReceipts = []; 
+    let globalFlatItems = []; 
+    let renderedReceiptCount = 0; 
+    const RECEIPT_BATCH_SIZE = 20; 
+    
     let chartInstance = null;
     let globalCurrency = 'USD'; 
     let iso8601Override = true; 
 
-    // ** CONFIG: DEPARTMENTS THAT SELL BY WEIGHT **
-    // 63: Meat/Deli, 12: Produce, 13: Cheese, 19: Deli? (Adjust as needed)
+    // Config
     const WEIGHTED_DEPTS = [63, 12, 13, 19, 14, 34]; 
-
     const activeFilters = { refund: false, markdown: false, discount: false };
     const userLocale = navigator.language || 'en-US';
     const currencyMap = { 'US':'USD', 'CN':'CAD', 'CA':'CAD', 'GB':'GBP', 'UK':'GBP', 'JP':'JPY', 'KR':'KRW', 'MX':'MXN', 'AU':'AUD', 'TW':'TWD', 'IS':'ISK' };
 
+    // Helpers
     const money = (val, currencyCode = 'USD') => {
-        try { 
-            return new Intl.NumberFormat(userLocale, { 
-                style: 'currency', currency: currencyCode, currencyDisplay: 'narrowSymbol' 
-            }).format(val); 
-        } 
+        try { return new Intl.NumberFormat(userLocale, { style: 'currency', currency: currencyCode, currencyDisplay: 'narrowSymbol' }).format(val); } 
         catch (e) { return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val); }
+    };
+
+    const parseLocalData = (isoStr) => {
+        if(!isoStr) return { date: '', time: '' };
+        const parts = isoStr.split('T');
+        const dPart = parts[0];
+        const tPart = parts[1] ? parts[1].substring(0, 5) : ''; 
+        return { date: dPart, time: tPart };
     };
 
     const formatDate = (dateStr) => {
@@ -160,65 +226,337 @@
         return iso8601Override ? d.toLocaleDateString('sv-SE') : d.toLocaleDateString(userLocale); 
     };
 
+    // --- Filter Logic ---
     function toggleFilter(type) {
         activeFilters[type] = !activeFilters[type];
         const btn = document.getElementById('filter' + type.charAt(0).toUpperCase() + type.slice(1));
         const activeClass = 'active-' + type;
         if (activeFilters[type]) btn.classList.add(activeClass);
         else btn.classList.remove(activeClass);
-        applyFilters();
+        handleSearchOrFilter();
     }
 
-    function applyFilters() {
+    function handleSearchOrFilter() {
         const term = searchInput.value.toLowerCase();
-        const filtered = globalItems.filter(item => {
-            const textMatch = item.description.toLowerCase().includes(term) || item.itemNumber.includes(term) || item.warehouse.toLowerCase().includes(term);
-            if (!textMatch) return false;
-            if (activeFilters.refund && item.txType !== "Refund") return false;
-            if (activeFilters.markdown && !item.isMarkdown) return false;
-            if (activeFilters.discount && item.discountAmount === 0) return false;
-            return true;
-        });
-        renderTable(filtered);
+        const selectedDate = dateFilter.value;
+        const hasFilters = Object.values(activeFilters).some(v => v);
+        const hasSearch = term.length > 0;
+
+        if (hasSearch || hasFilters) {
+            loadMoreBtn.classList.add('d-none');
+            
+            const filtered = globalFlatItems.filter(item => {
+                const itemDate = parseLocalData(item.date).date;
+                if (selectedDate && itemDate !== selectedDate) return false;
+
+                if (hasSearch) {
+                    const textMatch = item.description.toLowerCase().includes(term) || 
+                                      item.itemNumber.includes(term) || 
+                                      item.warehouse.toLowerCase().includes(term);
+                    if (!textMatch) return false;
+                }
+                
+                if (activeFilters.refund && item.txType !== "Refund") return false;
+                if (activeFilters.markdown && !item.isMarkdown) return false;
+                if (activeFilters.discount && item.discountAmount === 0) return false;
+                
+                return true;
+            });
+            renderFlatList(filtered.slice(0, 500)); 
+        } 
+        else {
+            tbody.innerHTML = ''; 
+            renderedReceiptCount = 0;
+            if (selectedDate) {
+                const dateBatch = globalReceipts.filter(r => parseLocalData(r.meta.fullDateString).date === selectedDate);
+                renderGroupedList(dateBatch);
+                loadMoreBtn.classList.add('d-none');
+            } else {
+                loadMoreBtn.classList.remove('d-none');
+                loadMoreReceipts();
+            }
+        }
     }
 
+    function loadMoreReceipts() {
+        const start = renderedReceiptCount;
+        const end = start + RECEIPT_BATCH_SIZE;
+        const batch = globalReceipts.slice(start, end);
+        
+        if (batch.length === 0) {
+            loadMoreBtn.classList.add('d-none');
+            return;
+        }
+        renderGroupedList(batch);
+        renderedReceiptCount += batch.length;
+        if (renderedReceiptCount >= globalReceipts.length) loadMoreBtn.classList.add('d-none');
+    }
+
+    // --- View Generators ---
+
+    function renderGroupedList(receiptsBatch) {
+        receiptsBatch.forEach(r => {
+            const isRefund = r.meta.txType === "Refund";
+            const colorClass = isRefund ? "receipt-header-refund" : "receipt-header-sale";
+            const cur = r.meta.currency;
+            const dt = parseLocalData(r.meta.fullDateString);
+
+            let savingsHtml = ''; 
+            if (r.meta.totalSavings > 0) savingsHtml = `Saved: ${money(r.meta.totalSavings, cur)}`;
+
+            const headerRow = `
+                <tr class="receipt-header-row">
+                    <td colspan="4" class="receipt-header-cell ${colorClass}">
+                        <div class="rh-flex-container">
+                            <div class="rh-col-datetime">${dt.date} &nbsp; ${dt.time}</div>
+                            <div class="rh-col-wh">${r.meta.warehouse}</div>
+                            <div class="rh-col-barcode">${r.meta.barcode}</div>
+                            <div class="rh-col-items">Items: ${r.meta.itemCount}</div>
+                            <div class="rh-col-tax">Tax: ${money(r.meta.tax, cur)}</div>
+                            <div class="rh-col-total">${money(r.meta.total, cur)}</div>
+                            <div class="rh-col-saved">${savingsHtml}</div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            tbody.insertAdjacentHTML('beforeend', headerRow);
+
+            r.items.forEach(item => {
+                const rowHtml = buildRowHtml(item, false); 
+                tbody.insertAdjacentHTML('beforeend', rowHtml);
+            });
+        });
+    }
+
+    function renderFlatList(items) {
+        tbody.innerHTML = '';
+        items.forEach(item => {
+            const rowHtml = buildRowHtml(item, true); 
+            tbody.insertAdjacentHTML('beforeend', rowHtml);
+        });
+    }
+
+    function buildRowHtml(item, showContext) {
+        const isRefund = item.txType === "Refund";
+        const cur = item.currency || 'USD'; 
+        let rowClass = isRefund ? 'row-refund' : '';
+        
+        let descHtml = `<span class="ig-desc">${item.description}</span>`;
+        if (item.isMarkdown) descHtml += `<span class="badge-markdown">Markdown</span>`;
+        
+        let metaHtml = '';
+        if (showContext) {
+            const dt = parseLocalData(item.date);
+            metaHtml = `<div class="ig-meta"><strong>${dt.date}</strong> &bull; ${item.warehouse} &bull; #${item.itemNumber}</div>`;
+        } else {
+            metaHtml = `<div class="ig-meta">#${item.itemNumber}</div>`;
+        }
+
+        // --- COL 1: DESC ---
+        const colDesc = `<div>${descHtml}${metaHtml}</div>`;
+
+        // --- COL 2: UNITS ---
+        let colUnitsContent = '';
+        const unitData = getUnitStrings(item, cur); 
+        if (unitData.line1 || unitData.line2) {
+            colUnitsContent = `
+                <span class="unit-line-1">${unitData.line1}</span>
+                <span class="unit-line-2">${unitData.line2}</span>
+            `;
+        }
+        const colUnits = `<div class="ig-units">${colUnitsContent}</div>`;
+
+        // --- COL 3: PRICE CALC ---
+        let priceLine1Html = '';
+        const refundBadge = isRefund ? `<span class="badge-refund">Refund</span>` : '';
+
+        if (item.discountAmount !== 0) {
+            if (!isRefund) priceLine1Html += `<span class="badge-discount">Saved ${money(Math.abs(item.discountAmount), cur)}</span>`;
+            priceLine1Html += `<span class="price-original">${money(item.originalAmount, cur)}</span>`;
+        }
+        const priceBottom = `${refundBadge}<span class="price-net">${money(item.netAmount, cur)}</span>`;
+
+        const colPrices = `
+            <div class="ig-prices">
+                <div class="price-line-1">${priceLine1Html}</div>
+                <div>${priceBottom}</div>
+            </div>
+        `;
+
+        // --- COL 4: TOTALS ---
+        let taxHtml = '';
+        let finalHtml = '';
+        
+        if (item.taxRate > 0) {
+            let taxBasis = item.netAmount; 
+            if (item.activeDiscountType === 'CPN') taxBasis = item.originalAmount;
+            const taxVal = taxBasis * (item.taxRate / 100);
+            const finalVal = item.netAmount + taxVal;
+            const label = item.taxLegend ? item.taxLegend : "Tax";
+            const sign = taxVal >= 0 ? '+' : '';
+            taxHtml = `<span class="price-tax-detail">${item.taxRate.toFixed(1)}% ${label}: ${sign}${money(taxVal, cur)}</span>`;
+            finalHtml = `<span class="price-final">Final: ${money(finalVal, cur)}</span>`;
+        } 
+        else if (item.taxFlag === "Y" || (item.taxFlag !== "N" && item.taxFlag)) {
+            taxHtml = `<span class="price-tax-detail">Tax: Rate Unknown</span>`;
+        }
+        
+        const colTotals = `<div class="ig-totals">${taxHtml}${finalHtml}</div>`;
+
+        return `
+            <tr class="${rowClass}">
+                <td style="padding: 4px 8px;">
+                    <div class="item-grid">
+                        ${colDesc}
+                        ${colUnits}
+                        ${colPrices}
+                        ${colTotals}
+                    </div>
+                </td>
+            </tr>
+        `;
+    }
+
+    // Helper
+    function getUnitStrings(item, cur) {
+        let l1 = '', l2 = '';
+        const isRefund = item.txType === "Refund";
+        const qty = Math.abs(item.unitQty);
+
+        if (item.unitPrice > 0 && Math.abs(item.netAmount) > 0) {
+            const expectedTotal = Math.abs(qty * item.unitPrice);
+            const actualTotal = Math.abs(item.originalAmount);
+            const isMathValid = Math.abs(expectedTotal - actualTotal) < 0.05;
+
+            // CASE A: Standard Qty
+            if (qty > 1 && isMathValid) {
+                // Check if discounted
+                if (item.discountAmount !== 0 && !isRefund) {
+                    const effectiveUnit = Math.abs(item.netAmount / qty);
+                    // Updated: Effective First, Strike Second
+                    l1 = `${qty} @ <span class="unit-effective">${money(effectiveUnit, cur)}/ea</span> <span class="unit-strike">${money(item.unitPrice, cur)}/ea</span>`;
+                } else {
+                    l1 = `${qty} @ ${money(item.unitPrice, cur)}/ea`;
+                }
+            } 
+            // CASE B: Weighted
+            else {
+                const isAllowedDept = WEIGHTED_DEPTS.includes(item.dept);
+                const isMathMismatch = Math.abs(item.originalAmount - item.unitPrice) > 0.02;
+
+                if (isAllowedDept && isMathMismatch) {
+                    const weight = Math.abs(item.originalAmount / item.unitPrice);
+                    const effectivePrice = Math.abs(item.netAmount / weight);
+                    
+                    const prefix = qty > 1 ? `${qty} = ` : '';
+
+                    if (item.country === "CN") {
+                        const wKg = weight; 
+                        const pKgOrig = item.unitPrice; 
+                        const pKgEff = effectivePrice;
+                        const wLb = wKg * 2.20462; 
+                        const pLbOrig = pKgOrig / 2.20462; 
+                        const pLbEff = pKgEff / 2.20462;
+
+                        let displayPriceKg = `${money(pKgOrig, cur)}/kg`;
+                        let displayPriceLb = `${money(pLbOrig, cur)}/lb`;
+
+                        if (item.discountAmount !== 0 && !isRefund) {
+                            // Updated: Effective First, Strike Second
+                            displayPriceKg = `<span class="unit-effective">${money(pKgEff, cur)}/kg</span> <span class="unit-strike">${displayPriceKg}</span>`;
+                            displayPriceLb = `<span class="unit-effective">${money(pLbEff, cur)}/lb</span> <span class="unit-strike">${displayPriceLb}</span>`;
+                        }
+                        
+                        l1 = `${prefix}${wKg.toFixed(3)} kg @ ${displayPriceKg}`;
+                        l2 = `${prefix}${wLb.toFixed(3)} lb @ ${displayPriceLb}`;
+                    } else if (item.country === "US") {
+                        l1 = `${prefix}${weight.toFixed(3)} lb @ ${money(item.unitPrice, cur)}/lb`;
+                    } else {
+                        l1 = `${prefix}${weight.toFixed(3)} kg @ ${money(item.unitPrice, cur)}/kg`;
+                    }
+                }
+            }
+        }
+        return { line1: l1, line2: l2 };
+    }
+
+    // --- Drag & Drop ---
     dropZone.addEventListener('click', () => fileInput.click());
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
     dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('dragover'); }); 
     dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); if (e.dataTransfer.files.length) processFile(e.dataTransfer.files[0]); });
     fileInput.addEventListener('change', (e) => { if (e.target.files.length) processFile(e.target.files[0]); });
-    searchInput.addEventListener('keyup', applyFilters);
+    searchInput.addEventListener('keyup', handleSearchOrFilter);
 
     function processFile(file) {
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
                 const json = JSON.parse(e.target.result);
-                let processedItems = []; 
+                globalReceipts = [];
+                globalFlatItems = [];
                 let lifetimeTotal = 0;
                 let lifetimeTax = 0;
+                let availableDates = new Set(); 
                 
-                const receipts = Array.isArray(json) ? json : [json];
-                const receiptCount = receipts.length;
+                const rawReceipts = Array.isArray(json) ? json : [json];
                 
-                if(receipts.length > 0 && receipts[0].warehouseCountry) {
-                    globalCurrency = currencyMap[receipts[0].warehouseCountry] || 'USD';
+                if(rawReceipts.length > 0 && rawReceipts[0].warehouseCountry) {
+                    globalCurrency = currencyMap[rawReceipts[0].warehouseCountry] || 'USD';
                 }
 
-                receipts.forEach(receipt => {
-                    const txType = receipt.transactionType || "Sale";
-                    const txDate = receipt.transactionDate;
-                    const warehouse = receipt.warehouseName || "Unknown";
-                    const country = receipt.warehouseCountry || "US";
-                    const localCurrency = currencyMap[country] || 'USD';
+                rawReceipts.forEach(receipt => {
+                    const rawDate = receipt.transactionDateTime || receipt.transactionDate; 
+                    if(rawDate) availableDates.add(parseLocalData(rawDate).date);
+
+                    const rMeta = {
+                        fullDateString: rawDate, 
+                        warehouse: receipt.warehouseName || "Unknown",
+                        barcode: receipt.transactionBarcode || "[Missing Barcode]",
+                        txType: receipt.transactionType || "Sale",
+                        country: receipt.warehouseCountry || "US",
+                        total: 0,
+                        tax: 0,
+                        itemCount: receipt.totalItemCount || 0,
+                        totalSavings: receipt.instantSavings || 0,
+                        currency: 'USD'
+                    };
+                    
+                    rMeta.currency = currencyMap[rMeta.country] || 'USD';
+                    if (receipt.total !== undefined) rMeta.total = receipt.total;
+                    else if (receipt.amount !== undefined) rMeta.total = receipt.amount;
+
+                    if (typeof receipt.taxes === 'number') {
+                        rMeta.tax = receipt.taxes;
+                    } else if (receipt.subTaxes) {
+                        if(receipt.subTaxes.aTaxAmount) rMeta.tax += receipt.subTaxes.aTaxAmount;
+                        if(receipt.subTaxes.bTaxAmount) rMeta.tax += receipt.subTaxes.bTaxAmount;
+                        if(receipt.subTaxes.cTaxAmount) rMeta.tax += receipt.subTaxes.cTaxAmount;
+                        if(receipt.subTaxes.dTaxAmount) rMeta.tax += receipt.subTaxes.dTaxAmount;
+                    }
+
+                    lifetimeTotal += rMeta.total;
+                    lifetimeTax += rMeta.tax; 
 
                     let taxRates = {}; 
                     let dominantTaxRate = 0;
                     let defaultLegend = "Tax";
 
-                    if (receipt.subTaxes && Array.isArray(receipt.subTaxes)) {
+                    const taxSource = (receipt.subTaxes && (receipt.subTaxes.aTaxPercent || receipt.subTaxes.aTaxAmount)) ? [receipt.subTaxes] : [];
+                    
+                    if (receipt.subTaxes && !Array.isArray(receipt.subTaxes)) {
+                         if(receipt.subTaxes.aTaxPercent) {
+                            taxRates["H"] = receipt.subTaxes.aTaxPercent; 
+                            if(receipt.subTaxes.aTaxPercent > dominantTaxRate) {
+                                dominantTaxRate = receipt.subTaxes.aTaxPercent;
+                                if(receipt.subTaxes.aTaxLegend) defaultLegend = receipt.subTaxes.aTaxLegend;
+                            }
+                         }
+                         if(receipt.subTaxes.bTaxPercent) {
+                            if(receipt.subTaxes.bTaxPercent > dominantTaxRate) dominantTaxRate = receipt.subTaxes.bTaxPercent;
+                         }
+                    } else if (receipt.subTaxes && Array.isArray(receipt.subTaxes)) {
                         receipt.subTaxes.forEach(tax => {
-                            lifetimeTax += (tax.amount || 0);
                             const rate = parseFloat(tax.aTaxPercent || tax.percent || tax.rate || tax.taxRate || 0);
                             const code = tax.code || tax.taxCode || "Tax";
                             taxRates[code] = rate;
@@ -229,9 +567,7 @@
                         });
                     }
 
-                    if (receipt.total !== undefined) lifetimeTotal += receipt.total;
-                    else if (receipt.amount !== undefined) lifetimeTotal += receipt.amount;
-
+                    let processedReceiptItems = [];
                     if (receipt.itemArray && Array.isArray(receipt.itemArray)) {
                         let currentReceiptItems = [];
 
@@ -274,8 +610,8 @@
                                 if (!parentFound) {
                                     currentReceiptItems.push({
                                         description: "General Adjustment", itemNumber: "0", originalAmount: 0,
-                                        discountAmount: amount, netAmount: amount, txType: txType, date: txDate,
-                                        warehouse: warehouse, country: country, currency: localCurrency,
+                                        discountAmount: amount, netAmount: amount, txType: rMeta.txType, date: rMeta.fullDateString,
+                                        warehouse: rMeta.warehouse, country: rMeta.country, currency: rMeta.currency,
                                         unitPrice: 0, unitQty: 1, taxFlag: "N", taxRate: 0, dept: 0
                                     });
                                 }
@@ -289,7 +625,7 @@
                                 if (isTaxable) {
                                     if (taxRates[taxFlag] !== undefined) itemTaxRate = taxRates[taxFlag];
                                     else if (dominantTaxRate > 0) itemTaxRate = dominantTaxRate;
-                                    else if (country === 'CN') {
+                                    else if (rMeta.country === 'CN') {
                                         if (taxFlag === 'H') { itemTaxRate = 13; itemTaxLegend = "HST"; }
                                         else if (taxFlag === 'S' || taxFlag === 'G') { itemTaxRate = 5; itemTaxLegend = "GST"; }
                                         else if (taxFlag === 'Y') { itemTaxRate = 13; itemTaxLegend = "Tax"; }
@@ -304,11 +640,11 @@
                                     originalAmount: amount,
                                     discountAmount: 0,
                                     netAmount: amount,
-                                    txType: txType,
-                                    date: txDate,
-                                    warehouse: warehouse,
-                                    country: country,
-                                    currency: localCurrency,
+                                    txType: rMeta.txType,
+                                    date: rMeta.fullDateString,
+                                    warehouse: rMeta.warehouse,
+                                    country: rMeta.country,
+                                    currency: rMeta.currency,
                                     unitPrice: unitPrice,
                                     unitQty: unitQty,
                                     taxFlag: taxFlag,
@@ -320,32 +656,52 @@
                                 });
                             }
                         });
-                        processedItems = processedItems.concat(currentReceiptItems);
+                        processedReceiptItems = currentReceiptItems;
+                    }
+
+                    if (rMeta.itemCount === 0) rMeta.itemCount = processedReceiptItems.length;
+                    
+                    if (rMeta.totalSavings === 0) {
+                        processedReceiptItems.forEach(i => rMeta.totalSavings += Math.abs(i.discountAmount));
+                    }
+
+                    if (processedReceiptItems.length > 0) {
+                        globalReceipts.push({ meta: rMeta, items: processedReceiptItems });
+                        globalFlatItems = globalFlatItems.concat(processedReceiptItems);
                     }
                 });
 
-                const lifetimeNetItems = processedItems.reduce((acc, item) => acc + item.netAmount, 0);
-                globalItems = processedItems.sort((a, b) => new Date(b.date) - new Date(a.date));
-                renderDashboard(globalItems, lifetimeTotal, lifetimeNetItems, lifetimeTax, receiptCount);
+                dateFilter.innerHTML = '<option value="">All Dates</option>';
+                Array.from(availableDates).sort().reverse().forEach(d => {
+                    const option = document.createElement("option");
+                    option.value = d;
+                    option.text = d;
+                    dateFilter.appendChild(option);
+                });
+
+                const lifetimeSub = lifetimeTotal - lifetimeTax;
+                globalReceipts.sort((a, b) => b.meta.fullDateString.localeCompare(a.meta.fullDateString));
+                globalFlatItems.sort((a, b) => b.date.localeCompare(a.date));
+
+                renderStats(lifetimeTotal, lifetimeSub, lifetimeTax, rawReceipts.length);
+                renderChart();
+                
+                renderedReceiptCount = 0;
+                tbody.innerHTML = '';
+                loadMoreReceipts(); 
+                initialView.classList.add('d-none');
+                dashboardView.classList.remove('d-none');
 
             } catch (err) {
-                console.error("Parsing Error:", err);
+                console.error(err);
                 alert("Error reading file. Check console.");
             }
         };
         reader.readAsText(file);
     }
 
-    function renderDashboard(items, total, sub, tax, count) {
-        initialView.classList.add('d-none');
-        dashboardView.classList.remove('d-none');
-        document.getElementById('receiptCountLabel').textContent = `${count} Receipts Analyzed`;
-        document.getElementById('displayTotal').textContent = money(total, globalCurrency);
-        document.getElementById('displaySubtotal').textContent = money(sub, globalCurrency);
-        document.getElementById('displayTax').textContent = money(tax, globalCurrency);
-        applyFilters(); 
-
-        const salesItems = items.filter(i => i.netAmount > 0);
+    function renderChart() {
+        const salesItems = globalFlatItems.filter(i => i.netAmount > 0);
         const sortedItems = salesItems.sort((a, b) => b.netAmount - a.netAmount).slice(0, 10);
         if (chartInstance) chartInstance.destroy();
         const ctx = document.getElementById('itemsChart').getContext('2d');
@@ -359,119 +715,13 @@
         });
     }
 
-    function renderTable(itemsToRender) {
-        const tbody = document.getElementById('itemsTableBody');
-        tbody.innerHTML = '';
-        const renderLimit = searchInput.value === '' && !Object.values(activeFilters).some(v=>v) ? 200 : itemsToRender.length;
-        
-        itemsToRender.slice(0, renderLimit).forEach(item => {
-            const isRefund = item.txType === "Refund";
-            const cur = item.currency || 'USD'; 
-            let rowClass = isRefund ? 'row-refund' : '';
-            
-            // --- Info Column ---
-            let descHtml = `<span class="fw-bold text-dark">${item.description}</span>`;
-            if (item.isMarkdown) descHtml = descHtml + `<span class="badge-markdown">Markdown</span>`;
-
-            // --- Price Logic ---
-            let priceHtml = '';
-            const refundBadge = isRefund ? `<span class="badge-refund">Refund</span>` : '';
-
-            if (item.discountAmount !== 0) {
-                if (!isRefund) priceHtml += `<span class="badge-discount">Saved ${money(Math.abs(item.discountAmount), cur)}</span>`;
-                priceHtml += `<span class="price-original">${money(item.originalAmount, cur)}</span>`;
-                priceHtml += `${refundBadge}<span class="price-net">${money(item.netAmount, cur)}</span>`;
-            } else {
-                priceHtml = `${refundBadge}<span class="price-net">${money(item.netAmount, cur)}</span>`;
-            }
-
-            // --- Unit Price Logic ---
-            let unitInfo = '';
-            
-            if (item.unitPrice > 0 && Math.abs(item.netAmount) > 0) {
-                const expectedTotal = Math.abs(item.unitQty * item.unitPrice);
-                const actualTotal = Math.abs(item.originalAmount);
-                const isMathValid = Math.abs(expectedTotal - actualTotal) < 0.05;
-
-                // Case A: Multiple Items (e.g. 2 @ $10)
-                if (Math.abs(item.unitQty) > 1 && isMathValid) {
-                    unitInfo = `${Math.abs(item.unitQty)} @ ${money(item.unitPrice, cur)}/ea`;
-                } 
-                // Case B: Weighted Items (Restricted by Department)
-                else {
-                    // Check if Dept is in allowed weight list (63=Meat, 12=Produce, etc)
-                    const isAllowedDept = WEIGHTED_DEPTS.includes(item.dept);
-                    
-                    // Calculation Check: Price != Unit Price
-                    const isMathMismatch = Math.abs(item.originalAmount - item.unitPrice) > 0.02;
-
-                    if (isAllowedDept && isMathMismatch) {
-                        const weight = Math.abs(item.originalAmount / item.unitPrice);
-                        // Discounted (Effective) Unit Price
-                        const effectivePrice = Math.abs(item.netAmount / weight);
-
-                        if (item.country === "CN") {
-                            const wKg = weight; 
-                            const pKgOrig = item.unitPrice;
-                            const pKgEff = effectivePrice;
-                            
-                            const wLb = wKg * 2.20462; 
-                            const pLbOrig = pKgOrig / 2.20462;
-                            const pLbEff = pKgEff / 2.20462;
-
-                            // If discounted, strike through original unit price
-                            let displayPriceKg = `${money(pKgOrig, cur)}/kg`;
-                            let displayPriceLb = `${money(pLbOrig, cur)}/lb`;
-
-                            if (item.discountAmount !== 0 && !isRefund) {
-                                displayPriceKg = `<span class="unit-strike">${displayPriceKg}</span> <span class="unit-effective">${money(pKgEff, cur)}/kg</span>`;
-                                displayPriceLb = `<span class="unit-strike">${displayPriceLb}</span> <span class="unit-effective">${money(pLbEff, cur)}/lb</span>`;
-                            }
-
-                            unitInfo = `${wKg.toFixed(3)} kg @ ${displayPriceKg} <span class="text-secondary opacity-50">|</span> ${wLb.toFixed(3)} lb @ ${displayPriceLb}`;
-                        } 
-                        // US / Other logic omitted for brevity but follows same pattern...
-                    }
-                }
-            }
-
-            // --- Tax & Final ---
-            let taxHtml = '';
-            let finalHtml = '';
-            
-            if (item.taxRate > 0) {
-                let taxBasis = item.netAmount; 
-                if (item.activeDiscountType === 'CPN') taxBasis = item.originalAmount;
-
-                const taxVal = taxBasis * (item.taxRate / 100);
-                const finalVal = item.netAmount + taxVal;
-                
-                const label = item.taxLegend ? item.taxLegend : "Tax";
-                const sign = taxVal >= 0 ? '+' : '';
-                taxHtml = `<div class="price-tax-detail">${item.taxRate.toFixed(1)}% ${label}: ${sign}${money(taxVal, cur)}</div>`;
-                finalHtml = `<div class="price-final">Final: ${money(finalVal, cur)}</div>`;
-            } 
-            else if (item.taxFlag === "Y" || (item.taxFlag !== "N" && item.taxFlag)) {
-                taxHtml = `<div class="price-tax-detail">Tax: Rate Unknown</div>`;
-            }
-
-            const row = `<tr class="${rowClass}">
-                <td>
-                    <div class="mb-1">${descHtml}</div>
-                    <div class="meta-text">
-                        <strong>${formatDate(item.date)}</strong> &bull; ${item.warehouse} &bull; #${item.itemNumber}
-                    </div>
-                </td>
-                <td class="text-end align-middle">
-                    ${priceHtml}
-                    <div class="price-unit">${unitInfo}</div>
-                    ${taxHtml}
-                    ${finalHtml}
-                </td>
-            </tr>`;
-            tbody.insertAdjacentHTML('beforeend', row);
-        });
+    function renderStats(total, sub, tax, count) {
+        document.getElementById('receiptCountLabel').textContent = `${count} Receipts Analyzed`;
+        document.getElementById('displayTotal').textContent = money(total, globalCurrency);
+        document.getElementById('displaySubtotal').textContent = money(sub, globalCurrency);
+        document.getElementById('displayTax').textContent = money(tax, globalCurrency);
     }
+
 </script>
 </body>
 </html>
