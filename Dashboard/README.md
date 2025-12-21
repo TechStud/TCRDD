@@ -8,6 +8,13 @@ A client-side web application for visualizing, searching, and analyzing Costco d
 
 The project has evolved from a simple list viewer into a robust financial audit tool. It features a "Dual-Mode" rendering engine that switches between a **History View** (_grouped by shopping trip_) and a **Search View** (_flat item list_) for granular filtering.
 
+---
+  ## 🚀 Quick Start
+  
+  1. If you do not have your Costco Receipt File... visit our **[Costco Receipt Downloader](https://github.com/TechStud/TCRDD/blob/main/Downloader)** to get started.
+  2. Once you have your Costco Receipt File, visit our **[Live Costco Dashboard](https://TechStud.github.io/TCRDD/Dashboard/)**
+---
+
 ### ✨ Key Features
 
 #### 1. Advanced Data Parsing
