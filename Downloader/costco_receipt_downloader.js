@@ -65,6 +65,8 @@
         warehouseState
         warehouseCountry
         warehousePostalCode
+        warehouseAreaCode
+        warehousePhone
         companyNumber
         transactionBarcode
         totalItemCount
@@ -90,6 +92,7 @@
           amount
           taxFlag
           refundFlag
+          resaleFlag
           voidFlag
           merchantID
           entryMethod
