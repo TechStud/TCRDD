@@ -9,7 +9,7 @@
  *                - Enhanced console logging for real-time status.
  *                - Data-Rich Output: Detailed transaction data saved in JSON format.
  * 
- * Version:       1.2.0
+ * Version:       1.2.2
  * Author:        TechStud
  * Repository:    https://github.com/TechStud/TCRD
  * License:       MIT
@@ -34,6 +34,7 @@
  *   Treat all data/file content accordingly and keep it secure.
  * ==============================================================================
  */
+
 
 (async function() {
 
@@ -68,6 +69,8 @@
         warehouseAreaCode
         warehousePhone
         companyNumber
+        invoiceNumber
+        sequenceNumber
         transactionBarcode
         totalItemCount
         instantSavings
@@ -164,10 +167,41 @@
           tenderEntryMethodDescription
           walletType
           walletId
+          storedValueBucket
         }
       }
     }
   `;
+  
+  // --- HELPER FOR BEUATIFYING NESTED ERRORS ---
+  function cleanNestedError(input) {
+    let current = input;
+    while (typeof current === 'string') {
+      try {
+        current = JSON.parse(current);
+      } catch (e) {
+        break;
+      }
+    }
+    if (Array.isArray(current)) {
+      return current.map(item => `  • ${item.trim()}`).join('\n');
+    }
+    return current;
+  }
+
+  // --- Global error formatter for all Costco API calls
+  async function handleApiError(response, contextName) {
+    const errorBody = await response.json().catch(() => ({}));
+    const rawDescription = errorBody?.context?.statusMessage?.description?.value;
+    const unpacked = cleanNestedError(rawDescription);
+    const finalMessage = unpacked?.errorMessage ? cleanNestedError(unpacked.errorMessage) : (unpacked || errorBody);
+
+    console.group(`%c 🛑 ${contextName} Failed `, 'color: white; background: #d9534f; font-weight: bold; padding: 2px;');
+    console.log(`%cStatus: ${response.status} ${response.statusText}`, 'font-weight: bold;');
+    console.log(typeof finalMessage === 'string' ? finalMessage : JSON.stringify(finalMessage, null, 2));
+    console.groupEnd();
+  }
+
 
   // Validate the existence of required authentication tokens 
   function validateTokens() {
@@ -222,7 +256,8 @@
       );
 
       if (!response.ok) {
-        console.error(`❌ HTTP Error: ${response.status} ${response.statusText}`);
+        // Use the new centralized helper
+        await handleApiError(response, 'Receipt List Fetch');
         throw new Error(`API request failed with status ${response.status}`);
       }
 
@@ -254,6 +289,7 @@
       let resolved = false;
       // Create a container to hold both buttons
       const container = document.createElement("div");
+      container.id = "tcrd-ui-container";
       Object.assign(container.style, {
         position: "fixed",
         bottom: "20px",
@@ -521,6 +557,7 @@
           const writable = await handle.createWritable();
           await writable.write(blob);
           await writable.close();
+          console.log(`%c ✅ Successfully saved via FileSystem API: ${handle.name}`, 'color: #5cb85c; font-weight: bold;');
           logStyle(`\n--- 💾 Saved successfully to: ${handle.name} ---`, 'bold', 'normal');
 
         } else {
@@ -532,14 +569,29 @@
           console.log("ℹ️ Unable to call the Save File dialog interface... falling back to browser download defaults.");
           console.log("💡 ↳ TIP: All browsers have an option to open the Save File dialog interface when downloading files...");
           console.log("💡        ↳ In your browser go to: Settings -> Downloads -> Enable the related 'Ask where to save each file before downloading' option.");
+
+          // --- BEGIN IMPROVED FALLBACK DOWNLOAD ---
           const a = document.createElement('a');
+          const url = window.URL.createObjectURL(blob); // Define URL as a variable for easier revocation
           a.download = filename;
-          a.href = window.URL.createObjectURL(blob);
+          a.href = url;
           document.body.appendChild(a);
+          
           a.click();
-          document.body.removeChild(a);
-          window.URL.revokeObjectURL(a.href);
+          
+          // 1. Immediate Success Log
+          console.log(`%c ✅ Successfully triggered fallback download: ${filename}`, 'color: #5cb85c; font-weight: bold;');
+          
+          // 2. Scheduled Cleanup
+          setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url); // Clear RAM
+            console.debug(`%c 🧹 Memory Freed: Fallback ObjectURL for ${filename} revoked.`, 'color: #888; font-style: italic;');
+          }, 100);
+
           logStyle(`\n--- 💾 Download Complete! Check your Downloads folder for %c${filename}%c ---`, 'bold', 'normal');
+          // --- END IMPROVED FALLBACK DOWNLOAD ---
+
         } else {
           console.log("❌ User cancelled the save dialog.");
         }
@@ -553,13 +605,8 @@
       console.log('--- 🏁 Costco Receipts Downloader Finished ---');
       // Ensure the temporary button is removed after completion
       const buttons = document.querySelectorAll('button');
-      buttons.forEach(btn => {
-        if (btn.textContent.includes("Load Existing") || btn.textContent.includes("Start Fresh")) {
-          if (btn.parentElement && btn.parentElement.tagName === 'DIV') {
-            btn.parentElement.remove();
-          }
-        }
-      });
+      const ui = document.getElementById("tcrd-ui-container");
+      if (ui) ui.remove();
     }
   }
 
