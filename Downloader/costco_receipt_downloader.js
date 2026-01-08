@@ -77,6 +77,7 @@
         subTotal
         taxes
         total
+        currencyCode
         registerNumber
         transactionNumber
         operatorNumber
